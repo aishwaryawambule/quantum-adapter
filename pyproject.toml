@@ -37,6 +37,8 @@ quantum-adapter = "quantum_adapter.cli:main"
 [project.urls]
 Homepage = "https://github.com/aishwaryawambule/quantum-adapter"
 Issues = "https://github.com/aishwaryawambule/quantum-adapter/issues"
+Documentation = "https://github.com/aishwaryawambule/quantum-adapter/blob/main/docs/api.md"
+Changelog = "https://github.com/aishwaryawambule/quantum-adapter/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6", "qiskit>=1.0", "accelerate>=0.26"]
