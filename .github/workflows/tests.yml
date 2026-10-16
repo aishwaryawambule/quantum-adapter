@@ -26,6 +26,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.10"
-      - run: uv sync --group dev --resolution lowest-direct
+      # --no-sources: the PyTorch CPU index has no plain torch 2.3.0 wheel for x86_64 Linux (only +cpu builds),
+      # so the lowest versions come from PyPI instead.
+      - run: uv sync --group dev --resolution lowest-direct --no-sources
       - run: uv run pytest -q
       - run: uv run python examples/quickstart.py --tiny
