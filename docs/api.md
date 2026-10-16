@@ -94,11 +94,11 @@ The plain `transformers.Trainer` also trains a `QuantumModel`, but only with `sa
 
 ## Command line: `quantum-adapter train` and `quantum-adapter predict`
 
-`quantum-adapter train --csv FILE --out DIR [--model gpt2] [--text-column text] [--label-column label] [--method amplitude] [--rank 4] [--experimental] [--target-modules ...] [--head NAME] [--epochs 6] [--lr 1e-2] [--batch-size 16] [--max-length 128] [--val-fraction 0.1] [--seed 0] [--device cuda|mps|cpu]`
+`quantum-adapter train --csv FILE --out DIR [--model gpt2] [--text-column text] [--label-column label] [--method amplitude] [--rank 4] [--experimental] [--target-modules ...] [--head NAME ...] [--epochs 6] [--lr 1e-2] [--batch-size 16] [--max-length 128] [--val-fraction 0.1] [--seed 0] [--device cuda|mps|cpu]`
 
-Fine-tunes `AutoModelForSequenceClassification` for `--model` on a CSV file with a header row. Rows with an empty text or label are skipped; labels are any strings (at least two distinct). Without `--target-modules` the layers are picked by model family (`c_attn`; `q_proj`, `v_proj`; `query`, `value`; `q_lin`, `v_lin`; `q`, `v`), and without `--head` the head is `score` or `classifier`. Writes the two adapter files plus `labels.json` (base model, label names, max length).
+Fine-tunes `AutoModelForSequenceClassification` for `--model` on a CSV file with a header row. Rows with an empty text or label are skipped; labels are any strings (at least two distinct). Without `--target-modules` the layers are picked by model family (`c_attn`; `q_proj`, `v_proj`; `query`, `value`; `q_lin`, `v_lin`; `q`, `v`), and without `--head` the head is picked the same way (`score`; `pre_classifier` + `classifier`; `classifier`; `classification_head`). The validation rows are drawn from every label in proportion, and each label keeps at least one training row; `--seed` makes a run repeatable. A local `--model` directory is stored as an absolute path. Writes the two adapter files plus `labels.json` (base model, label names, max length).
 
-`quantum-adapter predict --adapter DIR [TEXT ...] [--device ...]` loads the adapter onto its base model and prints `label<TAB>confidence<TAB>text` per text; with no texts it reads one per line from stdin.
+`quantum-adapter predict --adapter DIR [TEXT ...] [--device ...]` loads the adapter onto its base model and prints `label<TAB>confidence<TAB>text` per text; with no texts it reads one per line from stdin, in batches of 32.
 
 The same steps are available from Python in `quantum_adapter.cli`: `read_csv`, `fit`, `load_classifier` and `predict_texts`.
 

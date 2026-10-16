@@ -20,18 +20,21 @@ LABELS_NAME = "labels.json"
 # Attention layers to adapt, per model family, tried in order: GPT-2, Llama/Mistral/Qwen, BERT/RoBERTa,
 # DistilBERT, T5.
 TARGET_CANDIDATES = (["c_attn"], ["q_proj", "v_proj"], ["query", "value"], ["q_lin", "v_lin"], ["q", "v"])
-HEAD_CANDIDATES = ("score", "classifier")
+# Classification heads, trained in full and saved with the adapter: GPT-2/Llama, DistilBERT (two layers, both
+# freshly initialised), BERT/RoBERTa, T5/BART.
+HEAD_CANDIDATES = (["score"], ["pre_classifier", "classifier"], ["classifier"], ["classification_head"])
 
 
 def read_csv(path: str | Path, text_column: str = "text", label_column: str = "label") -> tuple[list[str], list[str]]:
     """Return the texts and labels (as strings) of a CSV file with a header row; rows with an empty cell are skipped."""
-    with open(path, newline="", encoding="utf-8") as f:
+    # utf-8-sig: Excel's "CSV UTF-8" export starts with a byte-order mark
+    with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         missing = [c for c in (text_column, label_column) if c not in (reader.fieldnames or [])]
         if missing:
             raise ValueError(f"{path} has no column {missing[0]!r}; its columns are {reader.fieldnames}. "
                              "Pick others with --text-column / --label-column.")
-        rows = [(r[text_column].strip(), r[label_column].strip()) for r in reader]
+        rows = [((r[text_column] or "").strip(), (r[label_column] or "").strip()) for r in reader]  # short rows: None
     rows = [(t, y) for t, y in rows if t and y]
     if not rows:
         raise ValueError(f"{path} has no rows with both a text and a label.")
@@ -51,12 +54,12 @@ def auto_targets(model: nn.Module) -> list[str]:
                      f"(adaptable layer names in this model: {sorted(present)}).")
 
 
-def auto_head(model: nn.Module) -> str:
-    """The name of the classification head, which is trained in full and saved with the adapter."""
+def auto_head(model: nn.Module) -> list[str]:
+    """The classification head's module names, which are trained in full and saved with the adapter."""
     children = dict(model.named_children())
-    for name in HEAD_CANDIDATES:
-        if name in children:
-            return name
+    for names in HEAD_CANDIDATES:
+        if all(n in children for n in names):
+            return names
     raise ValueError(f"Couldn't find the classification head of {type(model).__name__}; pass --head "
                      f"(its top-level modules: {sorted(children)}).")
 
@@ -129,21 +132,36 @@ def _load_base(model_name: str, labels: list[str]):
     return model, tokenizer
 
 
+def split(ys: list[int], val_fraction: float, seed: int) -> tuple[list[int], list[int]]:
+    """Row indices (validation, training), holding out the same share of every label; each label keeps at
+    least one training row."""
+    rng = random.Random(seed)
+    val, tr = [], []
+    for label in sorted(set(ys)):
+        rows = [i for i, y in enumerate(ys) if y == label]
+        rng.shuffle(rows)
+        n_val = min(int(len(rows) * val_fraction), len(rows) - 1)
+        val += rows[:n_val]
+        tr += rows[n_val:]
+    rng.shuffle(tr)
+    return sorted(val), tr
+
+
 def train(args: argparse.Namespace) -> None:
+    torch.manual_seed(args.seed)  # before the head and the circuit angles are initialised, so runs repeat
     texts, raw = read_csv(args.csv, args.text_column, args.label_column)
     labels = sorted(set(raw))
     ys = [labels.index(y) for y in raw]
-    order = list(range(len(texts)))
-    random.Random(args.seed).shuffle(order)
-    n_val = int(len(order) * args.val_fraction)
-    val, tr = order[:n_val], order[n_val:]
+    val, tr = split(ys, args.val_fraction, args.seed)
     print(f"{len(texts)} rows, {len(labels)} labels {labels}: training on {len(tr)}, validating on {len(val)}.")
 
-    model, tokenizer = _load_base(args.model, labels)
+    # A local model directory is stored as an absolute path, so predict works from any directory.
+    base_model = str(Path(args.model).resolve()) if Path(args.model).is_dir() else args.model
+    model, tokenizer = _load_base(base_model, labels)
     config = QuantumAdapterConfig(
         target_modules=args.target_modules or auto_targets(model), method=args.method, rank=args.rank,
-        modules_to_save=[args.head or auto_head(model)], experimental=args.experimental,
-        base_model_name_or_path=args.model)
+        modules_to_save=args.head or auto_head(model), experimental=args.experimental,
+        base_model_name_or_path=base_model)
     qm = get_quantum_model(model, config)
     qm.print_trainable_parameters()
     fit(qm, tokenizer, [texts[i] for i in tr], [ys[i] for i in tr],
@@ -152,7 +170,7 @@ def train(args: argparse.Namespace) -> None:
         device=args.device or default_device())
     qm.save_pretrained(args.out)
     (Path(args.out) / LABELS_NAME).write_text(json.dumps(
-        {"base_model": args.model, "labels": labels, "max_length": args.max_length}, indent=2))
+        {"base_model": base_model, "labels": labels, "max_length": args.max_length}, indent=2))
     print(f"Saved the adapter to {args.out}/. Try it: quantum-adapter predict --adapter {args.out} \"some text\"")
 
 
@@ -165,16 +183,23 @@ def load_classifier(adapter: str | Path):
 
 @torch.no_grad()
 def predict_texts(model: nn.Module, tokenizer, texts: list[str], labels: list[str], *, max_length: int = 128,
-                  device: str = "cpu") -> list[tuple[str, float]]:
+                  batch_size: int = 32, device: str = "cpu") -> list[tuple[str, float]]:
     """The predicted label and its probability for each text."""
     model.to(device).eval()
-    probs = model(**_encode(tokenizer, texts, max_length, device)).logits.softmax(-1).cpu()
-    return [(labels[int(p.argmax())], float(p.max())) for p in probs]
+    out = []
+    for i in range(0, len(texts), batch_size):
+        probs = model(**_encode(tokenizer, texts[i:i + batch_size], max_length, device)).logits.softmax(-1).cpu()
+        out += [(labels[int(p.argmax())], float(p.max())) for p in probs]
+    return out
 
 
 def predict(args: argparse.Namespace) -> None:
-    model, tokenizer, info = load_classifier(args.adapter)
+    if not args.texts and sys.stdin.isatty():
+        sys.exit('Give texts to label, e.g. quantum-adapter predict --adapter DIR "some text", or pipe one per line.')
     texts = args.texts or [line.strip() for line in sys.stdin if line.strip()]
+    if not texts:
+        sys.exit("No texts to label.")
+    model, tokenizer, info = load_classifier(args.adapter)
     for text, (label, p) in zip(texts, predict_texts(model, tokenizer, texts, info["labels"],
                                                      max_length=info["max_length"],
                                                      device=args.device or default_device())):
@@ -195,7 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--rank", type=int, default=4)
     t.add_argument("--experimental", action="store_true", help="allow the experimental unitary and tensor methods")
     t.add_argument("--target-modules", nargs="+", help="layers to adapt (default: picked for the model family)")
-    t.add_argument("--head", help="classification head module (default: score or classifier)")
+    t.add_argument("--head", nargs="+", help="classification head modules (default: picked for the model family)")
     # Quantum adapters learn more slowly than LoRA: about twice LoRA's epochs at a learning rate near 1e-2.
     t.add_argument("--epochs", type=int, default=6)
     t.add_argument("--lr", type=float, default=1e-2)

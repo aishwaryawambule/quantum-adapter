@@ -1,3 +1,4 @@
+import io
 import json
 import subprocess
 import sys
@@ -5,7 +6,17 @@ import sys
 import pytest
 import torch
 from conftest import make_tiny_gpt2
-from transformers import RobertaConfig, RobertaForSequenceClassification
+from safetensors.torch import load_file
+from transformers import (
+    DistilBertConfig,
+    DistilBertForSequenceClassification,
+    GPT2Config,
+    GPT2ForSequenceClassification,
+    RobertaConfig,
+    RobertaForSequenceClassification,
+    T5Config,
+    T5ForSequenceClassification,
+)
 
 from quantum_adapter import cli
 from quantum_adapter.config import QuantumAdapterConfig
@@ -59,9 +70,69 @@ def test_auto_targets_and_head_per_family(tiny_llama):
     roberta = RobertaForSequenceClassification(RobertaConfig(
         vocab_size=64, hidden_size=32, num_hidden_layers=1, num_attention_heads=2, intermediate_size=64,
         max_position_embeddings=40, num_labels=2))
-    assert cli.auto_targets(gpt2) == ["c_attn"] and cli.auto_head(gpt2) == "score"
+    assert cli.auto_targets(gpt2) == ["c_attn"] and cli.auto_head(gpt2) == ["score"]
     assert cli.auto_targets(tiny_llama) == ["q_proj", "v_proj"]
-    assert cli.auto_targets(roberta) == ["query", "value"] and cli.auto_head(roberta) == "classifier"
+    assert cli.auto_targets(roberta) == ["query", "value"] and cli.auto_head(roberta) == ["classifier"]
+
+
+def test_auto_head_distilbert_and_t5():
+    distil = DistilBertForSequenceClassification(DistilBertConfig(
+        vocab_size=64, dim=32, n_layers=1, n_heads=2, hidden_dim=64, max_position_embeddings=40, num_labels=2))
+    t5 = T5ForSequenceClassification(T5Config(
+        vocab_size=64, d_model=32, d_kv=16, d_ff=64, num_layers=1, num_heads=2, num_labels=2,
+        decoder_start_token_id=0))
+    # DistilBERT's head is two freshly initialised layers: both must train and be saved.
+    assert cli.auto_targets(distil) == ["q_lin", "v_lin"]
+    assert cli.auto_head(distil) == ["pre_classifier", "classifier"]
+    assert cli.auto_head(t5) == ["classification_head"]
+
+
+def test_read_csv_handles_excel_bom_and_short_rows(tmp_path):
+    p = tmp_path / "d.csv"
+    p.write_bytes("\ufefftext,label\ngood,pos\njust text\nbad,neg\n".encode())
+    assert cli.read_csv(p) == (["good", "bad"], ["pos", "neg"])
+
+
+def test_split_holds_out_every_label_and_keeps_one_training_row():
+    ys = [0] * 20 + [1] * 2 + [2]
+    val, tr = cli.split(ys, 0.5, seed=0)
+    assert sorted(val + tr) == list(range(len(ys)))
+    assert [sum(ys[i] == y for i in val) for y in (0, 1, 2)] == [10, 1, 0]
+    assert {ys[i] for i in tr} == {0, 1, 2}
+    assert cli.split(ys, 0.5, seed=0) == (val, tr)
+
+
+def test_predict_texts_batches_preserve_order():
+    qm = get_quantum_model(make_tiny_gpt2(), QuantumAdapterConfig(
+        target_modules=["c_attn"], rank=2, depth=2, modules_to_save=["score"]))
+    texts = ["a" * (1 + i % 7) for i in range(10)]
+    whole = cli.predict_texts(qm, CharTokenizer(), texts, ["x", "y"], batch_size=100)
+    batched = cli.predict_texts(qm, CharTokenizer(), texts, ["x", "y"], batch_size=3)
+    assert [y for y, _ in whole] == [y for y, _ in batched]
+    assert all(abs(p - q) < 1e-5 for (_, p), (_, q) in zip(whole, batched))
+
+
+def test_predict_with_no_texts_exits_with_a_message(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    with pytest.raises(SystemExit, match="No texts"):
+        cli.main(["predict", "--adapter", str(tmp_path)])
+
+
+def test_same_seed_repeats_the_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "_load_base", lambda name, labels: (make_tiny_gpt2_unseeded(), CharTokenizer()))
+    csv_path = write_csv(tmp_path / "d.csv", ROWS)
+    for out in ("a", "b"):
+        cli.main(["train", "--csv", str(csv_path), "--out", str(tmp_path / out), "--epochs", "1", "--rank", "2",
+                  "--device", "cpu", "--seed", "3"])
+    a, b = load_file(tmp_path / "a" / "adapter_model.safetensors"), load_file(tmp_path / "b" / "adapter_model.safetensors")
+    assert a.keys() == b.keys() and all(torch.equal(a[k], b[k]) for k in a)
+
+
+def make_tiny_gpt2_unseeded():
+    """Like make_tiny_gpt2 but without its own manual_seed, so the CLI's --seed decides the initial weights."""
+    cfg = GPT2Config(n_layer=2, n_embd=32, n_head=2, n_positions=32, vocab_size=64, num_labels=2, pad_token_id=0,
+                     bos_token_id=0, eos_token_id=0)
+    return GPT2ForSequenceClassification(cfg)
 
 
 def test_auto_targets_and_head_explain_failure():
