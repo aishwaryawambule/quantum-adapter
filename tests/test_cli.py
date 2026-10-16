@@ -151,8 +151,29 @@ def test_fit_learns_a_separable_task():
     logs = []
     acc = cli.fit(qm, tok, texts, labels, val_texts=texts, val_ys=labels, epochs=8, lr=3e-2, batch_size=8,
                   log=logs.append)
-    assert len(logs) == 8 and "validation accuracy" in logs[-1]
+    assert len([ln for ln in logs if ln.startswith("epoch ")]) == 8 and "validation accuracy" in logs[7]
     assert acc == 1.0
+
+
+def test_fit_keeps_the_best_epoch(monkeypatch):
+    qm = get_quantum_model(make_tiny_gpt2(), QuantumAdapterConfig(
+        target_modules=["c_attn"], rank=2, depth=2, modules_to_save=["score"]))
+    scores = iter([0.6, 0.9, 0.7])
+    states = []
+
+    def fake_accuracy(model, *args, **kwargs):
+        states.append({k: v.clone() for k, v in model.trainable_state_dict().items()})
+        return next(scores)
+
+    monkeypatch.setattr(cli, "accuracy", fake_accuracy)
+    logs = []
+    texts, labels = [t for t, _ in ROWS], [int(y == "positive") for _, y in ROWS]
+    best = cli.fit(qm, CharTokenizer(), texts, labels, val_texts=texts, val_ys=labels, epochs=3, lr=3e-2,
+                   batch_size=8, log=logs.append)
+    assert best == 0.9 and logs[-1] == "kept epoch 2 (best validation accuracy 90.0%)"
+    final = qm.trainable_state_dict()
+    assert all(torch.equal(final[k], states[1][k]) for k in final)
+    assert not all(torch.equal(final[k], states[2][k]) for k in final)
 
 
 def test_train_then_predict_round_trip(tmp_path, monkeypatch, capsys):

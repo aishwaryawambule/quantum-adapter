@@ -94,14 +94,18 @@ def accuracy(model: nn.Module, tokenizer, texts: list[str], ys: list[int], *, ba
 
 
 def fit(model: QuantumModel, tokenizer, texts: list[str], ys: list[int], *, val_texts: list[str] | None = None,
-        val_ys: list[int] | None = None, epochs: int = 6, lr: float = 1e-2, batch_size: int = 16,
+        val_ys: list[int] | None = None, epochs: int = 6, lr: float = 1e-2, batch_size: int = 32,
         max_length: int = 128, seed: int = 0, device: str = "cpu", log=print) -> float | None:
-    """Train the adapter and head with AdamW; returns the final validation accuracy (None without a val set)."""
+    """Train the adapter and head with AdamW; returns the best validation accuracy (None without a val set).
+
+    With a validation set, the model ends with the weights of its best epoch, since validation accuracy can
+    swing by several points between epochs; without one it keeps the last epoch's weights.
+    """
     rng = random.Random(seed)
     torch.manual_seed(seed)
     model.to(device)
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=lr)
-    val_acc = None
+    best_acc, best_epoch, best_state = None, 0, None
     for epoch in range(1, epochs + 1):
         model.train()
         total, steps = 0.0, 0
@@ -115,8 +119,14 @@ def fit(model: QuantumModel, tokenizer, texts: list[str], ys: list[int], *, val_
         if val_texts:
             val_acc = accuracy(model, tokenizer, val_texts, val_ys, max_length=max_length, device=device)
             line += f"  validation accuracy {val_acc:.1%}"
+            if best_acc is None or val_acc > best_acc:
+                best_acc, best_epoch = val_acc, epoch
+                best_state = {k: v.detach().clone() for k, v in model.trainable_state_dict().items()}
         log(line)
-    return val_acc
+    if best_state is not None and best_epoch != epochs:
+        model._load_trainable_state(best_state)
+        log(f"kept epoch {best_epoch} (best validation accuracy {best_acc:.1%})")
+    return best_acc
 
 
 def _load_base(model_name: str, labels: list[str]):
@@ -224,7 +234,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Quantum adapters learn more slowly than LoRA: about twice LoRA's epochs at a learning rate near 1e-2.
     t.add_argument("--epochs", type=int, default=6)
     t.add_argument("--lr", type=float, default=1e-2)
-    t.add_argument("--batch-size", type=int, default=16)
+    t.add_argument("--batch-size", type=int, default=32)
     t.add_argument("--max-length", type=int, default=128, help="tokens kept per text")
     t.add_argument("--val-fraction", type=float, default=0.1, help="share of rows held out for validation")
     t.add_argument("--seed", type=int, default=0)
