@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 - 2026-10-16 (beta)
+
+- README links now point to GitHub, so they work on the PyPI page; PyPI also links the API reference and this changelog.
+- `quantum-adapter train`: the classification head trains at its own learning rate (`--head-lr`, default 1e-3) and nothing uses weight decay, as in the benchmark (0.1.0 trained the head at the circuit's 1e-2 and decayed the circuit angles towards zero). It keeps the epoch with the best validation accuracy, and the default batch size is 32.
+
 ## 0.1.0 - 2026-10-16 (beta)
 
 - Method statuses: `amplitude` is the default (beta); `unitary` and `tensor` are experimental and need `experimental=True`.

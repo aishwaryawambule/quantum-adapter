@@ -5,7 +5,7 @@ from __future__ import annotations
 from quantum_adapter.config import QuantumAdapterConfig
 from quantum_adapter.model import QuantumModel, get_quantum_model
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = ["QuantumAdapterConfig", "QuantumModel", "QuantumTrainer", "__version__", "get_quantum_model"]
 
 
