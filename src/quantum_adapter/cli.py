@@ -14,7 +14,7 @@ from torch import nn
 
 from quantum_adapter.config import QuantumAdapterConfig
 from quantum_adapter.layers import SUPPORTED_LAYERS
-from quantum_adapter.model import QuantumModel, get_quantum_model
+from quantum_adapter.model import QuantumModel, _find_modules_to_save, get_quantum_model
 
 LABELS_NAME = "labels.json"
 # Attention layers to adapt, per model family, tried in order: GPT-2, Llama/Mistral/Qwen, BERT/RoBERTa,
@@ -94,9 +94,13 @@ def accuracy(model: nn.Module, tokenizer, texts: list[str], ys: list[int], *, ba
 
 
 def fit(model: QuantumModel, tokenizer, texts: list[str], ys: list[int], *, val_texts: list[str] | None = None,
-        val_ys: list[int] | None = None, epochs: int = 6, lr: float = 1e-2, batch_size: int = 32,
+        val_ys: list[int] | None = None, epochs: int = 6, lr: float = 1e-2, head_lr: float = 1e-3, batch_size: int = 32,
         max_length: int = 128, seed: int = 0, device: str = "cpu", log=print) -> float | None:
-    """Train the adapter and head with AdamW; returns the best validation accuracy (None without a val set).
+    """Train the adapter (at `lr`) and the modules_to_save head (at `head_lr`) with AdamW and no weight decay;
+    returns the best validation accuracy (None without a val set).
+
+    Circuit angles need a much higher learning rate than a freshly initialised head, and weight decay would pull
+    the angles towards zero, so both follow the benchmark's settings.
 
     With a validation set, the model ends with the weights of its best epoch, since validation accuracy can
     swing by several points between epochs; without one it keeps the last epoch's weights.
@@ -104,7 +108,12 @@ def fit(model: QuantumModel, tokenizer, texts: list[str], ys: list[int], *, val_
     rng = random.Random(seed)
     torch.manual_seed(seed)
     model.to(device)
-    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=lr)
+    head_ids = {id(p) for _, m in _find_modules_to_save(model.base_model, model.quantum_config.modules_to_save)
+                for p in m.parameters()}
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    groups = [{"params": [p for p in trainable if id(p) not in head_ids], "lr": lr},
+              {"params": [p for p in trainable if id(p) in head_ids], "lr": head_lr}]
+    opt = torch.optim.AdamW([g for g in groups if g["params"]], weight_decay=0.0)
     best_acc, best_epoch, best_state = None, 0, None
     for epoch in range(1, epochs + 1):
         model.train()
@@ -176,7 +185,7 @@ def train(args: argparse.Namespace) -> None:
     qm.print_trainable_parameters()
     fit(qm, tokenizer, [texts[i] for i in tr], [ys[i] for i in tr],
         val_texts=[texts[i] for i in val] or None, val_ys=[ys[i] for i in val] or None, epochs=args.epochs,
-        lr=args.lr, batch_size=args.batch_size, max_length=args.max_length, seed=args.seed,
+        lr=args.lr, head_lr=args.head_lr, batch_size=args.batch_size, max_length=args.max_length, seed=args.seed,
         device=args.device or default_device())
     qm.save_pretrained(args.out)
     (Path(args.out) / LABELS_NAME).write_text(json.dumps(
@@ -233,7 +242,8 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--head", nargs="+", help="classification head modules (default: picked for the model family)")
     # Quantum adapters learn more slowly than LoRA: about twice LoRA's epochs at a learning rate near 1e-2.
     t.add_argument("--epochs", type=int, default=6)
-    t.add_argument("--lr", type=float, default=1e-2)
+    t.add_argument("--lr", type=float, default=1e-2, help="learning rate of the circuit angles")
+    t.add_argument("--head-lr", type=float, default=1e-3, help="learning rate of the classification head")
     t.add_argument("--batch-size", type=int, default=32)
     t.add_argument("--max-length", type=int, default=128, help="tokens kept per text")
     t.add_argument("--val-fraction", type=float, default=0.1, help="share of rows held out for validation")

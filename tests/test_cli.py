@@ -176,6 +176,26 @@ def test_fit_keeps_the_best_epoch(monkeypatch):
     assert not all(torch.equal(final[k], states[2][k]) for k in final)
 
 
+def test_fit_uses_separate_head_learning_rate_and_no_weight_decay(monkeypatch):
+    qm = get_quantum_model(make_tiny_gpt2(), QuantumAdapterConfig(
+        target_modules=["c_attn"], rank=2, depth=2, modules_to_save=["score"]))
+    made = []
+    real = torch.optim.AdamW
+
+    def spy(groups, **kwargs):
+        made.append((groups, kwargs))
+        return real(groups, **kwargs)
+
+    monkeypatch.setattr(torch.optim, "AdamW", spy)
+    cli.fit(qm, CharTokenizer(), ["ab", "cd"], [0, 1], epochs=1, lr=0.02, head_lr=0.001, log=lambda _: None)
+    groups, kwargs = made[0]
+    assert kwargs["weight_decay"] == 0.0 and [g["lr"] for g in groups] == [0.02, 0.001]
+    head = {id(p) for p in qm.base_model.score.parameters()}
+    assert {id(p) for p in groups[1]["params"]} == head
+    assert not head & {id(p) for p in groups[0]["params"]}
+    assert sum(len(g["params"]) for g in groups) == len([p for p in qm.parameters() if p.requires_grad])
+
+
 def test_train_then_predict_round_trip(tmp_path, monkeypatch, capsys):
     labels_seen = []
 
