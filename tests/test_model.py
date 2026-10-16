@@ -1,6 +1,7 @@
 import copy
 import inspect
 import pickle
+import sys
 
 import pytest
 import torch
@@ -108,6 +109,9 @@ def test_merge_linear_layers(tiny_llama, ids, method):
         assert torch.allclose(qm.merge_and_unload()(ids).logits, expected, atol=1e-5)
 
 
+# PyTorch's half-precision CPU kernels crash with an illegal instruction (0xc000001d) on some GitHub Windows
+# runners, in PyTorch itself; the test passes on other Windows runners and on Linux and macOS.
+@pytest.mark.skipif(sys.platform == "win32", reason="PyTorch half-precision CPU kernels crash on some Windows CPUs")
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
 def test_half_precision_model(tiny_gpt2, ids, dtype):
     qm = get_quantum_model(tiny_gpt2.to(dtype), cfg())
