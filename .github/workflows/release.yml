@@ -46,7 +46,7 @@ jobs:
         with: { name: dist, path: dist/ }
       # No skip-existing: if this version is already on TestPyPI the job fails, so the smoke test below can
       # only ever install the files built in this run.
-      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2 (Twine 7: metadata 2.5)
         with:
           repository-url: "https://test.pypi.org/legacy/"
   smoke:
@@ -112,4 +112,4 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist/ }
-      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2 (Twine 7: metadata 2.5)
