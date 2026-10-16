@@ -73,7 +73,7 @@ before:  x -> W and dW -> sum        after merge:  x -> (W + dW)
 
 ## What the classical control tests
 
-Fewer trainable numbers can mean a worse result for a boring reason: less capacity. To test whether the circuit itself adds anything, the benchmark trains a classical adapter with the same number of trainable parameters (a fixed random projection for `amplitude` and `unitary`; a LoRA of nearest size for `tensor`). In the preliminary SST-2 run the control matched the quantum adapters, so whether the circuit beats an equal-size classical generator is still open; the full benchmark tests it and reports both.
+Fewer trainable numbers can mean a worse result for a boring reason: less capacity. To test whether the circuit itself adds anything, the benchmark trains a classical adapter with the same number of trainable parameters (a fixed random projection for `amplitude` and `unitary`; a LoRA of nearest size for `tensor`). On SST-2 the control matched `amplitude` at 3 epochs, and `amplitude` led it by 0.8 points in all 3 seeds at 6 epochs: a small edge on one task. The full benchmark tests it on more tasks and reports both.
 
 ```
 same size, circuit-made dW   vs   same size, classical dW

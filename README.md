@@ -124,9 +124,9 @@ Quantum adapters learn more slowly than LoRA. In our test (SST-2, GPT-2 small) a
 
 ## Results
 
-Results so far are preliminary: one task (SST-2, GPT-2 small). With 6 epochs, `amplitude` reached 87.3% against 87.7% for LoRA r4 with 87 times fewer adapter parameters; at 3 epochs it was 2.4 points behind. In short: LoRA-level accuracy (0.4 points behind on SST-2 at 6 epochs) with about 87x fewer trainable parameters. Same-size classical controls matched the quantum adapters in that run, so whether the quantum circuit beats an equal-size classical generator is still open; the full benchmark (6 epochs, 3 tasks) tests it. See [docs/benchmarks.md](docs/benchmarks.md) and [docs/experiments.md](docs/experiments.md).
+Results so far are preliminary: one task (SST-2, GPT-2 small). With 6 epochs, `amplitude` reached 87.3% against 87.7% for LoRA r4 with 87 times fewer adapter parameters; at 3 epochs it was 2.4 points behind. In short: LoRA-level accuracy (0.4 points behind on SST-2 at 6 epochs) with about 87x fewer trainable parameters. Does the circuit itself help? At 3 epochs an equal-size classical generator matched it. At 6 epochs `amplitude` beat the same classical generator in all 3 seeds, by 0.8 points on average (86.9% against 86.1%; paired t-test p ≈ 0.01). That is a small edge on one task; the full benchmark (6 epochs, 3 tasks) tests whether it holds. See [docs/benchmarks.md](docs/benchmarks.md) and [docs/experiments.md](docs/experiments.md).
 
-The full release benchmark (SST-2, AG News and E2E text generation, 3 seeds, against LoRA rank 4 and same-size classical controls) is running; its results, including any losses, will be published in 0.1.1.
+The full release benchmark (SST-2, AG News and E2E text generation, 3 seeds, against LoRA rank 4 and same-size classical controls) runs next; its results, including any losses, will be published in 0.1.1.
 
 ### History
 
@@ -147,7 +147,8 @@ Learning rate picked on a held-out dev split, then 3 seeds at that rate.
 - The quantum adapter trains **46× fewer numbers than LoRA** and loses about 3 points.
 - With the same number of trainable numbers, it was about 7 points ahead of the classical adapter used in this
   early experiment. The release benchmark's better-built classical control matched the quantum adapter
-  (84.7% vs 84.8%), so this early advantage did not hold up.
+  (84.7% vs 84.8%) at 3 epochs, so the 7-point gap was mostly a weak control. At 6 epochs a smaller, consistent
+  lead of 0.8 points remains (see [Results](#results)).
 - Its whole training run took about 1.6× as long as LoRA's (1.5× at 8,000 reviews, below). See
   [Limits](#limits) for why the library's measured per-step cost is lower.
 
