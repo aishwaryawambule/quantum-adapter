@@ -1,0 +1,115 @@
+name: release
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev
+      - run: uv run pytest -q
+      - run: uv run python examples/quickstart.py --tiny
+      - run: uv build
+      - name: Check release tag matches the built package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          uv run --no-project --with packaging python - <<'PY'
+          import glob, os, sys
+          from packaging.version import InvalidVersion, Version
+          tag = os.environ["TAG"].removeprefix("v")
+          wheels = glob.glob("dist/quantum_adapter-*.whl")
+          if len(wheels) != 1:
+              sys.exit(f"expected exactly one wheel in dist/, found {wheels}")
+          built = wheels[0].split("-")[1]
+          try:
+              same = Version(tag) == Version(built)
+          except InvalidVersion as err:
+              sys.exit(f"release tag {tag!r} is not a valid PEP 440 version: {err}")
+          if not same:
+              sys.exit(f"release tag {tag!r} does not match built package version {built!r}")
+          print(f"ok: release tag {tag} matches built version {built}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/ }
+  testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      # No skip-existing: if this version is already on TestPyPI the job fails, so the smoke test below can
+      # only ever install the files built in this run.
+      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
+        with:
+          repository-url: "https://test.pypi.org/legacy/"
+  smoke:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install runtime dependencies from PyPI
+        run: |
+          # Requires-Dist is read from the built wheel, so pyproject.toml stays the single source. Extras are skipped.
+          python - <<'PY' > requirements.txt
+          import glob, zipfile
+          wheel = glob.glob("dist/quantum_adapter-*.whl")[0]
+          with zipfile.ZipFile(wheel) as z:
+              meta = next(n for n in z.namelist() if n.endswith(".dist-info/METADATA"))
+              for line in z.read(meta).decode().splitlines():
+                  if line.startswith("Requires-Dist:") and "extra ==" not in line:
+                      print(line.split(":", 1)[1].strip())
+          PY
+          cat requirements.txt
+          python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install quantum-adapter from TestPyPI (retry until indexed)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            if python -m pip install --no-deps --index-url https://test.pypi.org/simple/ "quantum-adapter==$VERSION"; then
+              ok=1
+              break
+            fi
+            echo "attempt $i of 6 failed"
+            if [ "$i" -lt 6 ]; then sleep 30; fi
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "quantum-adapter==$VERSION was not installable from TestPyPI after 6 attempts" >&2
+            exit 1
+          fi
+      - name: Verify installed package and run the quick start
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd /tmp
+          python - "$VERSION" <<'PY'
+          import os, sys
+          from packaging.version import Version
+          import quantum_adapter
+          want = sys.argv[1]
+          assert Version(quantum_adapter.__version__) == Version(want), (quantum_adapter.__version__, want)
+          path = os.path.realpath(quantum_adapter.__file__)
+          assert "site-packages" in path, path
+          print(f"ok: quantum_adapter {quantum_adapter.__version__} imported from {path}")
+          PY
+          python "$GITHUB_WORKSPACE/examples/quickstart.py" --tiny
+  pypi:
+    needs: smoke
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4

@@ -1,0 +1,12 @@
+{"kind": "head", "lr": 0.0, "seed": 0, "adapter_params": 0, "trainable": 1536, "dev_acc": 0.802, "val_acc": 0.7694954128440367, "train_s": 114.9}
+{"kind": "head", "lr": 0.0, "seed": 1, "adapter_params": 0, "trainable": 1536, "dev_acc": 0.812, "val_acc": 0.8061926605504587, "train_s": 111.9}
+{"kind": "head", "lr": 0.0, "seed": 2, "adapter_params": 0, "trainable": 1536, "dev_acc": 0.818, "val_acc": 0.7912844036697247, "train_s": 108.1}
+{"kind": "lora", "lr": 0.001, "seed": 0, "adapter_params": 147456, "trainable": 148992, "dev_acc": 0.898, "val_acc": 0.8853211009174312, "train_s": 268.2}
+{"kind": "lora", "lr": 0.001, "seed": 1, "adapter_params": 147456, "trainable": 148992, "dev_acc": 0.902, "val_acc": 0.8990825688073395, "train_s": 275.5}
+{"kind": "lora", "lr": 0.001, "seed": 2, "adapter_params": 147456, "trainable": 148992, "dev_acc": 0.902, "val_acc": 0.908256880733945, "train_s": 259.1}
+{"kind": "quantum", "lr": 0.01, "seed": 0, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.882, "val_acc": 0.8692660550458715, "train_s": 367.7}
+{"kind": "quantum", "lr": 0.01, "seed": 1, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.886, "val_acc": 0.8899082568807339, "train_s": 397.2}
+{"kind": "quantum", "lr": 0.01, "seed": 2, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.894, "val_acc": 0.8864678899082569, "train_s": 413.5}
+{"kind": "random", "lr": 0.01, "seed": 0, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.824, "val_acc": 0.8119266055045872, "train_s": 262.8}
+{"kind": "random", "lr": 0.01, "seed": 1, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.826, "val_acc": 0.8451834862385321, "train_s": 263.0}
+{"kind": "random", "lr": 0.01, "seed": 2, "adapter_params": 1692, "trainable": 3228, "dev_acc": 0.862, "val_acc": 0.841743119266055, "train_s": 294.1}

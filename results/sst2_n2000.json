@@ -1,0 +1,182 @@
+[
+ {
+  "kind": "head",
+  "lr": 0.0,
+  "seed": 0,
+  "adapter_params": 0,
+  "trainable": 1536,
+  "dev_acc": 0.752,
+  "val_acc": 0.7454128440366973,
+  "train_s": 30.0
+ },
+ {
+  "kind": "head",
+  "lr": 0.0,
+  "seed": 1,
+  "adapter_params": 0,
+  "trainable": 1536,
+  "dev_acc": 0.71,
+  "val_acc": 0.7511467889908257,
+  "train_s": 27.2
+ },
+ {
+  "kind": "head",
+  "lr": 0.0,
+  "seed": 2,
+  "adapter_params": 0,
+  "trainable": 1536,
+  "dev_acc": 0.704,
+  "val_acc": 0.6536697247706422,
+  "train_s": 28.0
+ },
+ {
+  "kind": "lora",
+  "lr": 0.0003,
+  "seed": 0,
+  "adapter_params": 147456,
+  "trainable": 148992,
+  "dev_acc": 0.872,
+  "val_acc": 0.8692660550458715,
+  "train_s": 66.7
+ },
+ {
+  "kind": "lora",
+  "lr": 0.001,
+  "seed": 0,
+  "adapter_params": 147456,
+  "trainable": 148992,
+  "dev_acc": 0.904,
+  "val_acc": 0.8772935779816514,
+  "train_s": 64.9
+ },
+ {
+  "kind": "lora",
+  "lr": 0.003,
+  "seed": 0,
+  "adapter_params": 147456,
+  "trainable": 148992,
+  "dev_acc": 0.864,
+  "val_acc": 0.8623853211009175,
+  "train_s": 64.6
+ },
+ {
+  "kind": "lora",
+  "lr": 0.001,
+  "seed": 1,
+  "adapter_params": 147456,
+  "trainable": 148992,
+  "dev_acc": 0.87,
+  "val_acc": 0.8864678899082569,
+  "train_s": 62.7
+ },
+ {
+  "kind": "lora",
+  "lr": 0.001,
+  "seed": 2,
+  "adapter_params": 147456,
+  "trainable": 148992,
+  "dev_acc": 0.878,
+  "val_acc": 0.8646788990825688,
+  "train_s": 62.5
+ },
+ {
+  "kind": "quantum",
+  "lr": 0.003,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.846,
+  "val_acc": 0.8348623853211009,
+  "train_s": 120.3
+ },
+ {
+  "kind": "quantum",
+  "lr": 0.01,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.872,
+  "val_acc": 0.8543577981651376,
+  "train_s": 104.4
+ },
+ {
+  "kind": "quantum",
+  "lr": 0.03,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.822,
+  "val_acc": 0.7488532110091743,
+  "train_s": 97.4
+ },
+ {
+  "kind": "quantum",
+  "lr": 0.01,
+  "seed": 1,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.836,
+  "val_acc": 0.8360091743119266,
+  "train_s": 96.4
+ },
+ {
+  "kind": "quantum",
+  "lr": 0.01,
+  "seed": 2,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.86,
+  "val_acc": 0.8532110091743119,
+  "train_s": 98.3
+ },
+ {
+  "kind": "random",
+  "lr": 0.003,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.776,
+  "val_acc": 0.7729357798165137,
+  "train_s": 71.0
+ },
+ {
+  "kind": "random",
+  "lr": 0.01,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.796,
+  "val_acc": 0.7545871559633027,
+  "train_s": 63.9
+ },
+ {
+  "kind": "random",
+  "lr": 0.03,
+  "seed": 0,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.77,
+  "val_acc": 0.7970183486238532,
+  "train_s": 67.3
+ },
+ {
+  "kind": "random",
+  "lr": 0.01,
+  "seed": 1,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.716,
+  "val_acc": 0.7717889908256881,
+  "train_s": 64.6
+ },
+ {
+  "kind": "random",
+  "lr": 0.01,
+  "seed": 2,
+  "adapter_params": 1692,
+  "trainable": 3228,
+  "dev_acc": 0.816,
+  "val_acc": 0.8153669724770642,
+  "train_s": 62.4
+ }
+]
