@@ -92,6 +92,16 @@ A `transformers.Trainer` subclass for a `QuantumModel`, used exactly like `Train
 
 The plain `transformers.Trainer` also trains a `QuantumModel`, but only with `save_strategy="no"`.
 
+## Command line: `quantum-adapter train` and `quantum-adapter predict`
+
+`quantum-adapter train --csv FILE --out DIR [--model gpt2] [--text-column text] [--label-column label] [--method amplitude] [--rank 4] [--experimental] [--target-modules ...] [--head NAME] [--epochs 6] [--lr 1e-2] [--batch-size 16] [--max-length 128] [--val-fraction 0.1] [--seed 0] [--device cuda|mps|cpu]`
+
+Fine-tunes `AutoModelForSequenceClassification` for `--model` on a CSV file with a header row. Rows with an empty text or label are skipped; labels are any strings (at least two distinct). Without `--target-modules` the layers are picked by model family (`c_attn`; `q_proj`, `v_proj`; `query`, `value`; `q_lin`, `v_lin`; `q`, `v`), and without `--head` the head is `score` or `classifier`. Writes the two adapter files plus `labels.json` (base model, label names, max length).
+
+`quantum-adapter predict --adapter DIR [TEXT ...] [--device ...]` loads the adapter onto its base model and prints `label<TAB>confidence<TAB>text` per text; with no texts it reads one per line from stdin.
+
+The same steps are available from Python in `quantum_adapter.cli`: `read_csv`, `fit`, `load_classifier` and `predict_texts`.
+
 ## Saved format
 
 `adapter_config.json` has `"format_version": 1`. A release refuses to load a newer version with a message to upgrade; files without the field are version 1. Version 1 fixes, among other things, the `unitary` parameterisation: `theta_u` and `theta_v` have shape `(depth + 1, qubits)`.

@@ -31,6 +31,9 @@ dependencies = [
 qiskit = ["qiskit>=1.0"]
 trainer = ["accelerate>=0.26"]
 
+[project.scripts]
+quantum-adapter = "quantum_adapter.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/aishwaryawambule/quantum-adapter"
 Issues = "https://github.com/aishwaryawambule/quantum-adapter/issues"

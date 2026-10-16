@@ -7,6 +7,7 @@
 - Results are preliminary: one task (SST-2, GPT-2 small) so far, see docs/benchmarks.md. The full benchmark (SST-2, AG News, E2E) is still running and its results will be published in 0.1.1; the formal production gate has not been applied yet.
 - First release: `amplitude`, `unitary` (Quantum-PEFT) and `tensor` (QuanTA) adapter methods.
 - Save / load / push to the Hugging Face Hub, merge for zero-overhead inference, Qiskit export.
+- `quantum-adapter train` / `predict` command: fine-tune a text classifier on your own CSV file without writing code.
 - `QuantumTrainer`: a `transformers.Trainer` with adapter-only checkpoints and `resume_from_checkpoint`.
 - Saved adapters carry `format_version: 1`.
 - API reference in docs/api.md.

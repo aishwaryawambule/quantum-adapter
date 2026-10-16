@@ -31,6 +31,26 @@ pip install "quantum-adapter[trainer]" # adds accelerate, needed by QuantumTrain
 
 Requires Python 3.10 or newer.
 
+## Train on your own data (no code)
+
+Any text classification task works: reviews, support tickets, spam, intents, topics. Put your data in a CSV file with a header row:
+
+```
+text,label
+"The delivery was late again",complaint
+"Thanks, it arrived early!",praise
+```
+
+Then train and use it:
+
+```bash
+quantum-adapter train --csv my_data.csv --out my-adapter                # GPT-2 by default
+quantum-adapter train --csv my_data.csv --out my-adapter --model roberta-base
+quantum-adapter predict --adapter my-adapter "Where is my parcel?"        # prints label, confidence, text
+```
+
+`train` holds back 10% of the rows to report validation accuracy after each epoch, and picks the layers to adapt for GPT-2, Llama/Mistral/Qwen, BERT/RoBERTa, DistilBERT and T5 models (`--target-modules` for others). Labels can be any text. The defaults (6 epochs, learning rate 1e-2) follow the training tips below. `quantum-adapter train --help` lists every option. Accuracy has so far been measured on one task (SST-2); see [Results](#results).
+
 ## Quick start
 
 ```python
