@@ -29,5 +29,6 @@ jobs:
       # --no-sources: the PyTorch CPU index has no plain torch 2.3.0 wheel for x86_64 Linux (only +cpu builds),
       # so the lowest versions come from PyPI instead.
       - run: uv sync --group dev --resolution lowest-direct --no-sources
-      - run: uv run pytest -q
-      - run: uv run python examples/quickstart.py --tiny
+      # --no-sync: a plain `uv run` would re-sync to the lockfile and replace the lowest versions just installed.
+      - run: uv run --no-sync pytest -q
+      - run: uv run --no-sync python examples/quickstart.py --tiny

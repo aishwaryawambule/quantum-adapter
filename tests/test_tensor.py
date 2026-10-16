@@ -87,7 +87,23 @@ def test_autocast_does_not_lower_precision():
     assert _rel_err(y, m(x)) < 1e-2
 
 
-@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
+def _cpu_autocast_enabled() -> bool:
+    try:
+        return torch.is_autocast_enabled("cpu")
+    except TypeError:  # torch < 2.4 takes no device argument
+        return torch.is_autocast_cpu_enabled()
+
+
+def _mps_autocast_supported() -> bool:
+    try:
+        torch.autocast("mps", dtype=torch.float16)
+    except RuntimeError:  # older torch (e.g. 2.3) has no autocast for MPS
+        return False
+    return True
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available() or not _mps_autocast_supported(),
+                    reason="needs MPS with autocast support")
 def test_tensor_is_unchanged_by_mps_autocast():
     cfg = QuantumAdapterConfig(target_modules=["x"], method="tensor", tensor_axes=3)
     m = METHOD_CLASSES["tensor"](12, 20, cfg).to("mps")
@@ -105,8 +121,8 @@ def test_no_autocast_disables_autocast_for_any_device_type():
     from quantum_adapter.methods.tensor import _no_autocast
 
     with _no_autocast("cpu"):
-        assert not torch.is_autocast_enabled("cpu")
+        assert not _cpu_autocast_enabled()
     with torch.autocast("cpu", dtype=torch.bfloat16), _no_autocast("cpu"):
-        assert not torch.is_autocast_enabled("cpu")
+        assert not _cpu_autocast_enabled()
     with _no_autocast("not-a-device"):  # unsupported device types fall back to doing nothing
         pass
